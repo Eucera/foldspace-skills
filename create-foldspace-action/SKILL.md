@@ -123,10 +123,33 @@ export default function SharedStateForm({ agentKey }) {
 ## The Execution Workflow (STRICT)
 You must follow this step-by-step workflow exactly. Do not skip steps.
 
-### Step 1: Requirement Gathering
-When the user invokes this skill, ask for the action information.
-Say: "To get started, please provide the Foldspace Action information: which actions do you want me to implement? Please include the Action ID, description, any special activation instructions, and the input schema."
-**[PAUSE AND WAIT FOR USER INPUT. DO NOT PROCEED TO STEP 2 UNTIL DATA IS PROVIDED.]**
+### Step 1: Action Discovery
+When the user invokes this skill, determine how to obtain the action details. There are two paths:
+
+#### Path A: Foldspace MCP Server (preferred)
+Check if the `foldspace-mcp-server` is available as an MCP tool. If it is, ask the user:
+Say: "I see you have the Foldspace MCP server connected. Would you like me to use it to fetch your available actions, or would you prefer to provide the action details manually?"
+
+If the user agrees to use the MCP server:
+1. Call `list_actions` to retrieve all available actions.
+2. Present the list and ask the user which actions they want to implement.
+3. For each selected action, call `get_action_schema` to retrieve its full schema.
+4. Optionally call `generate_action_handler` to get a starting-point handler for reference.
+
+#### Path B: Manual Entry
+If the MCP server is **not available**, offer the user a choice:
+Say: "I don't see the Foldspace MCP server connected. You have two options:
+1. **Set up the MCP server** — follow the guide at https://foldspace.readme.io/docs/vibe-coding to connect it, then we can fetch your actions automatically.
+2. **Provide action details manually** — share the action information and we'll proceed right away."
+
+If the user chooses manual entry, ask them to provide the action data. Once received, validate that each action includes **at minimum**:
+- **Action ID**
+- **Action name / description**
+- **Parameter schema** (input fields and their types)
+
+If any of these are missing, ask the user to fill in the gaps before proceeding.
+
+**[PAUSE AND WAIT FOR USER INPUT. DO NOT PROCEED TO STEP 2 UNTIL ACTION DATA IS OBTAINED AND VALIDATED.]**
 
 ### Step 2: Codebase Reconnaissance
 Once the user provides the action metadata, silently scan the entire codebase.
@@ -205,6 +228,7 @@ After the code is written, perform a wiring review before considering the implem
 
 - Trace the full flow from `addActionHandlers` to each action's `execute` (and `render`, if applicable).
 - Verify each action ID in the code matches the Action ID provided by the user.
+- Verify each action receives the exact same parameters as provided by the user
 - Confirm the actions are attached to the correct agent instance identified in Step 4.
 - Check that all handlers are reachable and not shadowed, duplicated, or orphaned.
 - Validate that error handling follows the pattern from Step 5.
